@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FB Auto Messenger Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 780px; margin: 30px auto; }
+    label { display:block; margin-top:10px; }
+    input, textarea { width:100%; padding:8px; margin-top:4px; }
+    button { padding:10px 14px; margin-top:10px; }
+    .small { font-size:0.9em; color:#555; }
+  </style>
+</head>
+<body>
+  <h2>Facebook Auto Messaging Panel</h2>
+  <form id="form">
+    <label>Access Token:
+      <input name="token" id="token" placeholder="Enter Page Access Token (or your token)">
+    </label>
+
+    <label>Recipient / Thread ID (PSID):
+      <input name="recipient_id" id="recipient_id" placeholder="Recipient PSID or thread id">
+      <span class="small">Note: For Pages use recipient PSID. For other flows, adapt send logic in server.</span>
+    </label>
+
+    <label>Target Display Name (optional):
+      <input name="target_name" id="target_name" placeholder="Name to show in UI">
+    </label>
+
+    <label>Delay between messages (seconds):
+      <input type="number" name="delay" id="delay" value="5" min="1">
+    </label>
+
+    <label>Message file (.txt):
+      <input type="file" name="message_file" id="message_file" accept=".txt">
+      <span class="small">Each non-empty line in the file will be sent as one message (then it repeats).</span>
+    </label>
+
+    <button type="button" id="start">Start</button>
+  </form>
+
+  <h3>Control</h3>
+  <div>
+    <label>Job ID to stop:
+      <input id="stop_job_id">
+    </label>
+    <button id="stop">Stop</button>
+  </div>
+
+  <h3>Status / Logs</h3>
+  <pre id="log" style="background:#f7f7f7;padding:12px;height:220px; overflow:auto;"></pre>
+
+<script>
+async function toJSONForm(form) {
+  const fd = new FormData(form);
+  return fd;
+}
+
+document.getElementById('start').addEventListener('click', async () => {
+  const form = document.getElementById('form');
+  const fd = new FormData(form);
+  const fileInput = document.getElementById('message_file');
+  if (fileInput.files.length === 0) {
+    alert("Upload a .txt message file first.");
+    return;
+  }
+  fd.append('message_file', fileInput.files[0]);
+
+  const res = await fetch('/start', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) {
+    log("ERROR: " + JSON.stringify(data));
+    alert("Start failed: " + (data.error || res.status));
+    return;
+  }
+  log("Started job: " + data.job_id + " (messages: " + data.message_count + ")");
+});
+
+document.getElementById('stop').addEventListener('click', async () => {
+  const job_id = document.getElementById('stop_job_id').value.trim();
+  if (!job_id) { alert("Enter job id to stop."); return; }
+  const res = await fetch('/stop', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ job_id })
+  });
+  const data = await res.json();
+  log("Stop response: " + JSON.stringify(data));
+});
+
+function log(txt) {
+  const p = document.getElementById('log');
+  p.textContent = new Date().toLocaleString() + "  " + txt + "\n" + p.textContent;
+}
+</script>
+</body>
+</html>
